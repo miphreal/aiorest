@@ -6,6 +6,9 @@ from urllib.parse import urlsplit, parse_qsl
 
 from aiohttp.multidict import MultiDict, MutableMultiDict
 
+from .errors import JsonLoadError, JsonDecodeError
+
+
 __all__ = [
     'Request',
     'Response',
@@ -70,6 +73,8 @@ class Response:
 
 class Request:
 
+    _status_code = 200
+
     def __init__(self, host, message, req_body, *,
                  session_factory=None, loop=None):
         if loop is None:
@@ -87,6 +92,7 @@ class Request:
         self.query_string = res.query
         self.args = MultiDict(parse_qsl(res.query))
         self.headers = message.headers
+        self.matchdict = {}
         self._request_body = req_body
         self._response = Response()
         self._session_factory = session_factory
@@ -94,6 +100,14 @@ class Request:
         self._json_body = None
         self._cookies = None
         self._on_response = []
+
+    @property
+    def status_code(self):
+        return self._status_code
+
+    def set_status_code(self, code):
+        assert isinstance(code, int), 'Only `int` codes accepted'
+        self._status_code = code
 
     @property
     def response(self):
@@ -116,10 +130,23 @@ class Request:
             if self._request_body:
                 # TODO: store generated exception and
                 # don't try to parse json next time
-                self._json_body = json.loads(self._request_body
-                                                 .decode('utf-8'))
+                try:
+                    decoded = self._request_body.decode('utf-8')
+                except UnicodeDecodeError as exc:
+                    raise JsonDecodeError(exc.encoding,
+                                          exc.object,
+                                          exc.start,
+                                          exc.end,
+                                          "Json body is not utf-8 encoded",
+                                          )
+                else:
+                    try:
+                        self._json_body = json.loads(decoded)
+                    except (ValueError):
+                        raise JsonLoadError("Json body cannot be decoded",
+                                            decoded)
             else:
-                raise ValueError("Request has no a body")
+                raise JsonLoadError("Request hasn't a body")
         return self._json_body
 
     @property

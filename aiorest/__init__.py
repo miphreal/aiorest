@@ -3,7 +3,7 @@ import re
 import sys
 
 
-__version__ = '0.1.2'
+__version__ = '0.2.2'
 
 version = __version__ + ' , Python ' + sys.version
 
@@ -36,7 +36,7 @@ version_info = _parse_version(__version__)
 
 from .server import RESTServer
 from .request import Request, Response
-from .errors import RESTError
+from .errors import RESTError, JsonDecodeError, JsonLoadError
 
 # make pyflakes happy
-(RESTServer, Request, Response, RESTError)
+(RESTServer, Request, Response, RESTError, JsonDecodeError, JsonLoadError)
